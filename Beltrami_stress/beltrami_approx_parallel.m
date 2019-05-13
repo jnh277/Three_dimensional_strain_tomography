@@ -1,0 +1,232 @@
+function [Phi_yI, SLambda,lambdas,Phi_T] = beltrami_approx_parallel(num_basis,A,B,C,D,E,F,nu,entry,exit,X,Y,Z,nsegs)
+% [Phi_T, Lambda] = maxwell_approx(num_basis,A,B,C,X,Y,Z,nu,entry, exit)
+% num_basis: nominal basis function resolution in each direction
+% A,B,C,D,E,F: structures containing parameters for each underlying basis
+% function
+% X,Y,Z: test points
+% nu: poissons ratio
+% entry: ray entry points (each point is a column/or each column contains the nsegs(i) points)
+% exit: ray exit points (each point is a column)
+% nsegs: number of segments each ray intercepted
+
+m = num_basis;
+
+if ~exist('nsegs','var')
+    nsegs = [];
+end
+
+[ACF] = getCovFunc(A);
+[BCF] = getCovFunc(B);
+[CCF] = getCovFunc(C);
+[DCF] = getCovFunc(D);
+[ECF] = getCovFunc(E);
+[FCF] = getCovFunc(F);
+
+% generate basis function points
+[mm1,mm2,mm3] = meshgrid(1:m);   % grid of basis functions  
+insideCircle = sqrt(mm1.^2 + mm2.^2 + mm3.^2)/m <=1+eps;    % points inside a circle
+mm1 = mm1(insideCircle);
+mm2 = mm2(insideCircle);
+mm3 = mm3(insideCircle);
+MM = [mm1'; mm2';mm3'];   % all the basis functions, basis functions to change across columns
+[~,mm_adj] = size(MM);
+
+
+if isempty(nsegs)
+    L = sqrt(sum((entry-exit).^2));
+    nhat = (exit-entry)./L;
+else
+    [r,n] = size(entry);   % calculate distance from first entry to last exit
+    ind =sub2ind([r,n],nsegs*3-2,1:n);
+    xdif = exit(ind) - entry(1,:);
+    ind = ind + 1;
+    ydif = exit(ind) - entry(2,:);
+    ind = ind + 1;
+    zdif = exit(ind) - entry(3,:);
+    L = sqrt(xdif.^2 + ydif.^2 + zdif.^2);
+    nhat = [xdif;ydif;zdif]./L;
+end
+
+%% calculate Phi_yI
+
+if nargout < 4
+
+    [Idfuncs,lambdasA,SA] = basisFuncCom(MM,m,ACF,A.lx,A.ly,A.lz,A.sig_f,nhat,entry,exit,[0 1 1 0 0 1],[],[],[],nsegs);
+    IdydyA = Idfuncs(:,:,2);
+    IdzdzA = Idfuncs(:,:,3);
+    IdydzA = Idfuncs(:,:,6);
+    
+
+    [Idfuncs,lambdasB,SB] = basisFuncCom(MM,m,BCF,B.lx,B.ly,B.lz,B.sig_f,nhat,entry,exit,[1 0 1 0 1 0],[],[],[],nsegs);
+    IdxdxB = Idfuncs(:,:,1);
+    IdzdzB = Idfuncs(:,:,3);
+    IdxdzB = Idfuncs(:,:,5);
+    
+
+    [Idfuncs,lambdasC,SC] = basisFuncCom(MM,m,CCF,C.lx,C.ly,C.lz,C.sig_f,nhat,entry,exit,[1 1 0 1 0 0],[],[],[],nsegs);
+    IdxdxC = Idfuncs(:,:,1);
+    IdydyC = Idfuncs(:,:,2);
+    IdxdyC = Idfuncs(:,:,4);
+    
+    [Idfuncs,lambdasD,SD] = basisFuncCom(MM,m,DCF,D.lx,D.ly,D.lz,D.sig_f,nhat,entry,exit,[0 0 1 1 1 1],[],[],[],nsegs);
+    IdzdzD = Idfuncs(:,:,3);        
+    IdxdyD = Idfuncs(:,:,4);
+    IdxdzD = Idfuncs(:,:,5);
+    IdydzD = Idfuncs(:,:,6);
+    
+    [Idfuncs,lambdasE,SE] = basisFuncCom(MM,m,ECF,E.lx,E.ly,E.lz,E.sig_f,nhat,entry,exit,[0 1 0 1 1 1],[],[],[],nsegs);
+    IdydyE = Idfuncs(:,:,2);       
+    IdxdyE = Idfuncs(:,:,4);
+    IdxdzE = Idfuncs(:,:,5);
+    IdydzE = Idfuncs(:,:,6);
+    
+    [Idfuncs,lambdasF,SF] = basisFuncCom(MM,m,FCF,F.lx,F.ly,F.lz,F.sig_f,nhat,entry,exit,[1 0 0 1 1 1],[],[],[],nsegs);
+    IdxdxF = Idfuncs(:,:,1);       
+    IdxdyF = Idfuncs(:,:,4);
+    IdxdzF = Idfuncs(:,:,5);
+    IdydzF = Idfuncs(:,:,6);
+    
+    SLambda = [SA,SB,SC,SD,SE,SF];
+    lambdas = [lambdasA,lambdasB,lambdasC,lambdasD,lambdasE,lambdasF];
+
+else
+    Idfuncs = NaN(size(entry,2),mm_adj,6,6);
+    dfuncs = NaN(length(X(:)),mm_adj,6,6);  
+    S_tmp = NaN(6,mm_adj);
+    lam_tmp = NaN(3,mm_adj,6);
+    parfor pp = 1:6
+        
+        if pp==1
+            [Idfuncs(:,:,:,pp),lam_tmp(:,:,pp),S_tmp(pp,:),dfuncs(:,:,:,pp)] = basisFuncCom(MM,m,ACF,A.lx,A.ly,A.lz,A.sig_f,nhat,entry,exit,[0 1 1 0 0 1],X,Y,Z,nsegs);
+            
+        elseif pp==2
+            [Idfuncs(:,:,:,pp),lam_tmp(:,:,pp),S_tmp(pp,:),dfuncs(:,:,:,pp)] = basisFuncCom(MM,m,BCF,B.lx,B.ly,B.lz,B.sig_f,nhat,entry,exit,[1 0 1 0 1 0],X,Y,Z,nsegs);
+
+        elseif pp==3
+            [Idfuncs(:,:,:,pp),lam_tmp(:,:,pp),S_tmp(pp,:),dfuncs(:,:,:,pp)] = basisFuncCom(MM,m,CCF,C.lx,C.ly,C.lz,C.sig_f,nhat,entry,exit,[1 1 0 1 0 0],X,Y,Z,nsegs);
+            
+        elseif pp==4
+            [Idfuncs(:,:,:,pp),lam_tmp(:,:,pp),S_tmp(pp,:),dfuncs(:,:,:,pp)] = basisFuncCom(MM,m,DCF,D.lx,D.ly,D.lz,D.sig_f,nhat,entry,exit,[0 0 1 1 1 1],X,Y,Z,nsegs);
+            
+        elseif pp==5
+            [Idfuncs(:,:,:,pp),lam_tmp(:,:,pp),S_tmp(pp,:),dfuncs(:,:,:,pp)] = basisFuncCom(MM,m,ECF,E.lx,E.ly,E.lz,E.sig_f,nhat,entry,exit,[0 1 0 1 1 1],X,Y,Z,nsegs);
+            
+        elseif pp==6
+            [Idfuncs(:,:,:,pp),lam_tmp(:,:,pp),S_tmp(pp,:),dfuncs(:,:,:,pp)] = basisFuncCom(MM,m,FCF,F.lx,F.ly,F.lz,F.sig_f,nhat,entry,exit,[1 0 0 1 1 1],X,Y,Z,nsegs);
+        end
+    end
+        IdydyA = Idfuncs(:,:,2,1);
+        IdzdzA = Idfuncs(:,:,3,1);
+        IdydzA = Idfuncs(:,:,6,1);
+        dydyA = dfuncs(:,:,2,1);
+        dzdzA = dfuncs(:,:,3,1);
+        dydzA = dfuncs(:,:,6,1);
+
+        IdxdxB = Idfuncs(:,:,1,2);
+        IdzdzB = Idfuncs(:,:,3,2);
+        IdxdzB = Idfuncs(:,:,5,2);
+        dxdxB = dfuncs(:,:,1,2);
+        dzdzB = dfuncs(:,:,3,2);
+        dxdzB = dfuncs(:,:,5,2);
+
+        IdxdxC = Idfuncs(:,:,1,3);
+        IdydyC = Idfuncs(:,:,2,3);
+        IdxdyC = Idfuncs(:,:,4,3);
+        dxdxC = dfuncs(:,:,1,3);
+        dydyC = dfuncs(:,:,2,3);
+        dxdyC = dfuncs(:,:,4,3);
+
+        IdzdzD = Idfuncs(:,:,3,4);
+        IdxdyD = Idfuncs(:,:,4,4);
+        IdxdzD = Idfuncs(:,:,5,4);
+        IdydzD = Idfuncs(:,:,6,4);
+        dzdzD = dfuncs(:,:,3,4);
+        dxdyD = dfuncs(:,:,4,4);
+        dxdzD = dfuncs(:,:,5,4);
+        dydzD = dfuncs(:,:,6,4);
+
+        IdydyE = Idfuncs(:,:,2,5);
+        IdxdyE = Idfuncs(:,:,4,5);
+        IdxdzE = Idfuncs(:,:,5,5);
+        IdydzE = Idfuncs(:,:,6,5);
+        dydyE = dfuncs(:,:,2,5);
+        dxdyE = dfuncs(:,:,4,5);
+        dxdzE = dfuncs(:,:,5,5);
+        dydzE = dfuncs(:,:,6,5);
+
+        IdxdxF = Idfuncs(:,:,1,6);
+        IdxdyF = Idfuncs(:,:,4,6);
+        IdxdzF = Idfuncs(:,:,5,6);
+        IdydzF = Idfuncs(:,:,6,6);
+        dxdxF = dfuncs(:,:,1,6);
+        dxdyF = dfuncs(:,:,4,6);
+        dxdzF = dfuncs(:,:,5,6);
+        dydzF = dfuncs(:,:,6,6);
+        
+        SLambda = [S_tmp(1,:),S_tmp(2,:),S_tmp(3,:),S_tmp(4,:),S_tmp(5,:),S_tmp(6,:)];
+        lambdas = [lam_tmp(:,:,1),lam_tmp(:,:,2),lam_tmp(:,:,3),lam_tmp(:,:,4),lam_tmp(:,:,5),lam_tmp(:,:,6)];
+    
+end
+
+N1N1 = nhat(1,:)'.^2;
+N2N2 = nhat(2,:)'.^2;
+N3N3 = nhat(3,:)'.^2;
+N1N2 = 2*nhat(1,:)'.*nhat(2,:)';
+N1N3 = 2*nhat(1,:)'.*nhat(3,:)';
+N2N3 = 2*nhat(2,:)'.*nhat(3,:)';
+
+% np = length(X(:));      % number of test points
+% this would be the Phi for stress
+% phi_sxx = [zeros(np,mm_adj), dzdzB, dydyC, zeros(np,mm_adj), zeros(np,mm_adj), -2*dydzF];
+% phi_syy = [dzdzA, zeros(np,mm_adj), dxdxC, zeros(np,mm_adj), -2*dxdzE, zeros(np,mm_adj)];
+% phi_szz = [dydyA, dxdxB, zeros(np,mm_adj), -2*dxdyD, zeros(np,mm_adj), zeros(np,mm_adj)];
+% phi_sxy = [zeros(np,mm_adj), zeros(np,mm_adj), -dxdyC, -dzdzD, dydzE, dxdzF];
+% phi_sxz = [zeros(np,mm_adj), -dxdzB, zeros(np,mm_adj), dxdzD, dxdyE, -dxdxF];
+% phi_syz = [-dydzA, zeros(np,mm_adj), zeros(np,mm_adj), dydzD, -dydyE, dxdyF];
+% 
+% % so the Phi for strain is
+% phi_exx = phi_sxx - nu*phi_syy - nu*phi_szz;
+% phi_eyy = -nu*phi_sxx + phi_syy - nu*phi_szz;
+% phi_ezz = -nu*phi_sxx - nu*phi_syy + phi_szz;
+% phi_exy = (1+nu)*phi_sxy;
+% phi_exz = (1+nu)*phi_sxz;
+% phi_eyz = (1+nu)*phi_syz;
+
+phi_yA = N1N1.*(-nu*IdzdzA-nu*IdydyA)+N2N2.*(IdzdzA-nu*IdydyA)+N3N3.*(IdydyA-nu*IdzdzA)...
+    +N2N3.*(-(1+nu)*IdydzA); % relating measurements to the 'A' basis functions
+phi_yB = N1N1.*(IdzdzB-nu*IdxdxB)+N2N2.*(-nu*IdzdzB-nu*IdxdxB)+N3N3.*(IdxdxB-nu*IdzdzB)...
+    +N1N3.*(-(1+nu)*IdxdzB); % relating to the 'B' basis functions
+phi_yC = N1N1.*(IdydyC-nu*IdxdxC)+N2N2.*(IdxdxC-nu*IdydyC)+N3N3.*(-nu*IdydyC-nu*IdxdxC)...
+    +N1N2.*(-(1+nu)*IdxdyC); % relating to the 'C' basis functions
+phi_yD = N1N1.*(2*nu*IdxdyD)+N2N2.*(2*nu*IdxdyD)+N3N3.*(-2*IdxdyD)...
+    +N1N2.*(-(1+nu)*IdzdzD)+N1N3.*((1+nu)*IdxdzD)+N2N3.*((1+nu)*IdydzD);    % relating to the 'D' basis functions
+phi_yE = N1N1.*(2*nu*IdxdzE)+N2N2.*(-2*IdxdzE)+N3N3.*(2*nu*IdxdzE)...
+    +N1N2.*((1+nu)*IdydzE)+N1N3.*((1+nu)*IdxdyE)+N2N3.*(-(1+nu)*IdydyE); 
+phi_yF = N1N1.*(-2*IdydzF)+N2N2.*(2*nu*IdydzF)+N3N3.*(2*nu*IdydzF)...
+    +N1N2.*((1+nu)*IdxdzF)+N1N3.*(-(1+nu)*IdxdxF)+N2N3.*((1+nu)*IdxdyF); 
+
+Phi_yI =[phi_yA,phi_yB,phi_yC,phi_yD,phi_yE,phi_yF]./L';
+
+if nargout > 3
+    np = length(X(:));
+    % and combined for speed
+    % interweave the Phis, so that we have [exx,eyy,ezz,exy,exz,ezz] for each
+    % point
+    Phi_T = NaN(np*6,mm_adj*6);
+    Phi_T(1:6:end,:) = [-nu*dzdzA-nu*dydyA, dzdzB-nu*dxdxB, dydyC-nu*dxdxC, 2*nu*dxdyD, 2*nu*dxdzE, -2*dydzF]; % phi_exx;
+    Phi_T(2:6:end,:) = [dzdzA-nu*dydyA, -nu*dzdzB-nu*dxdxB, dxdxC-nu*dydyC, 2*nu*dxdyD, -2*dxdzE, 2*nu*dydzF]; % phi_eyy;
+    Phi_T(3:6:end,:) = [dydyA-nu*dzdzA, dxdxB-nu*dzdzB, -nu*dydyC-nu*dxdxC, -2*dxdyD, 2*nu*dxdzE, 2*nu*dydzF]; % phi_ezz;
+    Phi_T(4:6:end,:) = [zeros(np,mm_adj), zeros(np,mm_adj), -(1+nu)*dxdyC, -(1+nu)*dzdzD, (1+nu)*dydzE, (1+nu)*dxdzF];  % phi_exy;
+    Phi_T(5:6:end,:) = [zeros(np,mm_adj), -(1+nu)*dxdzB, zeros(np,mm_adj), (1+nu)*dxdzD, (1+nu)*dxdyE, -(1+nu)*dxdxF];  % phi_exz;
+    Phi_T(6:6:end,:) = [-(1+nu)*dydzA, zeros(np,mm_adj), zeros(np,mm_adj), (1+nu)*dydzD, -(1+nu)*dydyE, (1+nu)*dxdyF];  % phi_eyz;
+end
+
+
+
+
+
+
+end
+
+
+
