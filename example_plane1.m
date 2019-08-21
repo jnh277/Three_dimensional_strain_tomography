@@ -167,8 +167,8 @@ f_approx = Phi_T*(linsolve(CZ,linsolve(CZ,Phi_com'*(y_com./[y_std.^2;sig_t^2*one
 
 
 Var_f =  Phi_T*(linsolve(CZ,linsolve(CZ,Phi_T.',optsT),opts));
-av_std_recon = mean(sqrt(diag(var_f)));
-disp(['Average standard deviation = ' num2str(av_std_recon)])
+av_std_recon = mean(sqrt(diag(Var_f)));
+disp(['Average reconstruction standard deviation = ' num2str(av_std_recon)])
 
 epsxx_pred = NaN(size(X));
 epsyy_pred = NaN(size(X));
