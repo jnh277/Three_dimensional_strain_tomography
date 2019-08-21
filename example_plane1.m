@@ -166,6 +166,10 @@ optsT.TRANSA = true; optsT.UT = true; opts.TRANSA = false; opts.UT = true;
 f_approx = Phi_T*(linsolve(CZ,linsolve(CZ,Phi_com'*(y_com./[y_std.^2;sig_t^2*ones(nt,1)]),optsT),opts));
 
 
+Var_f =  Phi_T*(linsolve(CZ,linsolve(CZ,Phi_T.',optsT),opts));
+av_std_recon = mean(sqrt(diag(var_f)));
+disp(['Average standard deviation = ' num2str(av_std_recon)])
+
 epsxx_pred = NaN(size(X));
 epsyy_pred = NaN(size(X));
 epszz_pred = NaN(size(X));
