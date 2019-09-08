@@ -15,6 +15,7 @@ if ~exist('nsegs','var')
     nsegs = [];
 end
 
+
 [ACF] = getCovFunc(A);
 [BCF] = getCovFunc(B);
 [CCF] = getCovFunc(C);
