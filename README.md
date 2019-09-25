@@ -1,5 +1,5 @@
 # Three dimensional strain tomography
-Demonstration of full-field triaxial strain tomography from neutron transmission strain images. Strain images were RADEN energy-resolved-neutron-imaging instrument at the Japan Proton Accelerator Research Complex (J-PARC) in Japan (Jan 2019). This repository contains companion code to the PAPER, and has matlab example scripts to reconstruct and plot the comparisons given in the paper.
+Demonstration of full-field triaxial strain tomography from neutron transmission strain images. Strain images were RADEN energy-resolved-neutron-imaging instrument at the Japan Proton Accelerator Research Complex (J-PARC) in Japan (Jan 2019). This repository contains companion code to the PAPER, and has matlab example scripts to reconstruct and plot the comparisons given in the paper available at https://arxiv.org/abs/1906.08506.
 
 The strain image images have been preprocessed and is included in 'strain_image_data_set.m'. This involved Bragg-edge fitting, computing the relative strain values, and determining the LRT geometry (exit and entry locations of each ray through the sample). This preprocessed data is included in the repository. The original strain images data is very large but can be made available on request.
 
