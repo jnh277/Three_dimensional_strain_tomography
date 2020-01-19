@@ -70,7 +70,6 @@ disp('Loading strain image data')
 disp(['Number of measurements: ' num2str(num_m)])
 fprintf('Average measurement standard deviation: %e \n', mean(y_std))
 
-
 fprintf('\n')
 disp('Reconstructing Strain field')
 %% set up GP model parameters
